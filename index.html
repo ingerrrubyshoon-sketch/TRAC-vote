@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TracVote — P2P Voting on Intercom</title>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --card: #161921;
+    --border: #2a2f3e;
+    --accent: #7c6bff;
+    --accent2: #00d4aa;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --danger: #ff5f6d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, #1a1033 0%, #0d1a2e 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .logo h1 { font-size: 1.4rem; font-weight: 700; }
+  .logo span { color: var(--accent2); }
+  .status-bar {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.8rem; color: var(--muted);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent2);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+  }
+
+  /* LAYOUT */
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 20px;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+  }
+  @media (max-width: 700px) {
+    .container { grid-template-columns: 1fr; }
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+  }
+  .card h2 {
+    font-size: 1rem; font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 20px;
+  }
+
+  /* CREATE POLL */
+  .form-group { margin-bottom: 16px; }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  input, textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+  .options-list { display: flex; flex-direction: column; gap: 8px; }
+  .option-row {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .option-row input { flex: 1; }
+  .btn-icon {
+    background: var(--border);
+    border: none; border-radius: 6px;
+    width: 34px; height: 34px;
+    cursor: pointer; color: var(--muted);
+    font-size: 1.1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .btn-icon:hover { background: var(--accent); color: white; }
+
+  .btn {
+    background: linear-gradient(135deg, var(--accent), #5b4fd4);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.2s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn.secondary {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  /* ACTIVE POLLS */
+  .poll-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+  }
+  .poll-card:last-child { margin-bottom: 0; }
+  .poll-card:hover { border-color: var(--accent); }
+  .poll-header {
+    display: flex; justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+  .poll-question { font-weight: 600; font-size: 0.95rem; }
+  .badge {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+    margin-left: 10px;
+  }
+  .badge.live {
+    background: rgba(0,212,170,0.15);
+    color: var(--accent2);
+    border: 1px solid rgba(0,212,170,0.3);
+  }
+  .badge.closed {
+    background: rgba(100,116,139,0.15);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  /* VOTE OPTIONS */
+  .vote-option {
+    position: relative;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .vote-option input[type=radio] { display: none; }
+  .vote-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .vote-bar {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    border-radius: 8px;
+    transition: width 0.8s ease;
+  }
+  .vote-bar.c1 { background: rgba(124,107,255,0.18); }
+  .vote-bar.c2 { background: rgba(0,212,170,0.15); }
+  .vote-bar.c3 { background: rgba(255,95,109,0.15); }
+  .vote-bar.c4 { background: rgba(251,191,36,0.15); }
+  .vote-label span { position: relative; z-index: 1; }
+  .vote-pct { font-size: 0.8rem; color: var(--muted); position: relative; z-index: 1; }
+  .vote-option input[type=radio]:checked + .vote-label {
+    border-color: var(--accent);
+  }
+  .vote-option input[type=radio]:checked + .vote-label .vote-bar {
+    background: rgba(124,107,255,0.28);
+  }
+
+  .poll-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+  }
+  .poll-meta {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .btn-vote {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 18px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .btn-vote:hover { opacity: 0.8; }
+  .btn-vote:disabled {
+    background: var(--border);
+    color: var(--muted);
+    cursor: default;
+  }
+
+  /* SIDEBAR */
+  .peer-list { display: flex; flex-direction: column; gap: 10px; }
+  .peer-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .peer-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .peer-info { flex: 1; min-width: 0; }
+  .peer-name { font-size: 0.85rem; font-weight: 500; }
+  .peer-addr { font-size: 0.7rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .peer-status { font-size: 0.7rem; color: var(--accent2); }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .stat-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+  .stat-num { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+
+  /* LOG */
+  .log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    height: 120px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: var(--accent2);
+  }
+  .log-line { margin-bottom: 4px; }
+  .log-line span { color: var(--muted); }
+
+  /* TOAST */
+  #toast {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    background: var(--accent);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+
+  /* TABS */
+  .tabs {
+    display: flex; gap: 8px; margin-bottom: 20px;
+  }
+  .tab {
+    padding: 7px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 32px 0;
+    font-size: 0.9rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🗳️</div>
+    <div>
+      <h1>Trac<span>Vote</span></h1>
+      <div style="font-size:0.75rem;color:var(--muted)">P2P Voting on Intercom</div>
+    </div>
+  </div>
+  <div class="status-bar">
+    <div class="dot"></div>
+    <span id="netStatus">Connected · 4 peers</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- MAIN COLUMN -->
+  <div>
+
+    <!-- CREATE POLL -->
+    <div class="card" style="margin-bottom:24px">
+      <h2>✦ Create Poll</h2>
+      <div class="form-group">
+        <label>Poll Question</label>
+        <input type="text" id="pollQuestion" placeholder="e.g. Which token to list next?" />
+      </div>
+      <div class="form-group">
+        <label>Options</label>
+        <div class="options-list" id="optionsList">
+          <div class="option-row">
+            <input type="text" placeholder="Option A" value="Yes" />
+            <button class="btn-icon" onclick="removeOption(this)">✕</button>
+          </div>
+          <div class="option-row">
+            <input type="text" placeholder="Option B" value="No" />
+            <button class="btn-icon" onclick="removeOption(this)">✕</button>
+          </div>
+        </div>
+        <button class="btn secondary" style="margin-top:8px;width:auto;padding:8px 14px;font-size:0.82rem" onclick="addOption()">+ Add Option</button>
+      </div>
+      <div class="form-group">
+        <label>Duration</label>
+        <select id="duration" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:0.9rem;outline:none">
+          <option value="300">5 minutes</option>
+          <option value="3600" selected>1 hour</option>
+          <option value="86400">24 hours</option>
+        </select>
+      </div>
+      <button class="btn" onclick="createPoll()">📡 Broadcast Poll to Peers</button>
+    </div>
+
+    <!-- ACTIVE POLLS -->
+    <div class="card">
+      <h2>🗳️ Active Polls</h2>
+      <div class="tabs">
+        <button class="tab active" onclick="filterPolls('live',this)">Live</button>
+        <button class="tab" onclick="filterPolls('closed',this)">Closed</button>
+        <button class="tab" onclick="filterPolls('all',this)">All</button>
+      </div>
+      <div id="pollsContainer"></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div>
+    <div class="card" style="margin-bottom:20px">
+      <h2>📊 Network Stats</h2>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-num" id="statPeers">4</div>
+          <div class="stat-label">Peers</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statPolls">3</div>
+          <div class="stat-label">Polls</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statVotes">12</div>
+          <div class="stat-label">Votes Cast</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" style="color:var(--accent2)" id="statBlocks">847</div>
+          <div class="stat-label">State Block</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <h2>👥 Connected Peers</h2>
+      <div class="peer-list" id="peerList"></div>
+    </div>
+
+    <div class="card">
+      <h2>📟 P2P Log</h2>
+      <div class="log" id="logBox"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────
+const peers = [
+  { id: 'P1', name: 'Agent Alpha', addr: 'trac1qxp4...8f2a', online: true },
+  { id: 'P2', name: 'Agent Beta',  addr: 'trac1qkm9...3d7c', online: true },
+  { id: 'P3', name: 'Agent Gamma', addr: 'trac1qrs2...1b9e', online: true },
+  { id: 'P4', name: 'Agent Delta', addr: 'trac1qzw7...5c4f', online: false },
+];
+
+let polls = [
+  {
+    id: 'poll_001',
+    question: 'Should we add TNK staking rewards?',
+    options: ['Yes, implement now', 'Yes, but delay 3 months', 'No staking rewards'],
+    votes: [5, 2, 1],
+    status: 'live',
+    creator: 'Agent Alpha',
+    ends: Date.now() + 3600000,
+    myVote: null,
+  },
+  {
+    id: 'poll_002',
+    question: 'Which feature should we build next?',
+    options: ['P2P Auction', 'Multi-sig Wallet', 'DAO Governance', 'NFT Minting'],
+    votes: [3, 1, 4, 2],
+    status: 'live',
+    creator: 'Agent Beta',
+    ends: Date.now() + 7200000,
+    myVote: null,
+  },
+  {
+    id: 'poll_003',
+    question: 'Increase max peers per node from 10 to 25?',
+    options: ['Agree', 'Disagree', 'Abstain'],
+    votes: [6, 1, 0],
+    status: 'closed',
+    creator: 'Agent Gamma',
+    ends: Date.now() - 3600000,
+    myVote: 0,
+  },
+];
+
+let currentFilter = 'live';
+let logLines = [];
+
+// ─── PEERS ──────────────────────────────────────────
+function renderPeers() {
+  const el = document.getElementById('peerList');
+  el.innerHTML = peers.map(p => `
+    <div class="peer-item">
+      <div class="peer-avatar">${p.name.split(' ')[1][0]}</div>
+      <div class="peer-info">
+        <div class="peer-name">${p.name}</div>
+        <div class="peer-addr">${p.addr}</div>
+      </div>
+      <div style="font-size:0.7rem;color:${p.online?'var(--accent2)':'var(--muted)'}">${p.online?'● online':'○ offline'}</div>
+    </div>
+  `).join('');
+}
+
+// ─── POLLS ──────────────────────────────────────────
+function barColor(i) {
+  return ['c1','c2','c3','c4'][i % 4];
+}
+
+function renderPolls() {
+  const container = document.getElementById('pollsContainer');
+  const filtered = currentFilter === 'all' ? polls : polls.filter(p => p.status === currentFilter);
+  
+  if (!filtered.length) {
+    container.innerHTML = '<div class="empty-state">No polls here yet.</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(poll => {
+    const total = poll.votes.reduce((a,b) => a+b, 0) || 1;
+    const isLive = poll.status === 'live';
+    const optionsHtml = poll.options.map((opt, i) => {
+      const pct = Math.round((poll.votes[i] / total) * 100);
+      const checked = poll.myVote === i ? 'checked' : '';
+      return `
+        <div class="vote-option">
+          <input type="radio" name="vote_${poll.id}" id="v_${poll.id}_${i}" ${checked} ${!isLive?'disabled':''} onchange="selectVote('${poll.id}',${i})">
+          <label class="vote-label" for="v_${poll.id}_${i}">
+            <div class="vote-bar ${barColor(i)}" style="width:${pct}%"></div>
+            <span>${opt}</span>
+            <span class="vote-pct">${poll.votes[i]} · ${pct}%</span>
+          </label>
+        </div>
+      `;
+    }).join('');
+
+    const timeLeft = isLive ? formatTime(poll.ends - Date.now()) : 'Ended';
+    return `
+      <div class="poll-card">
+        <div class="poll-header">
+          <div class="poll-question">${poll.question}</div>
+          <span class="badge ${poll.status}">${isLive ? '● LIVE' : '✓ CLOSED'}</span>
+        </div>
+        ${optionsHtml}
+        <div class="poll-footer">
+          <div class="poll-meta">${total} votes · by ${poll.creator} · ${timeLeft}</div>
+          ${isLive ? `<button class="btn-vote" id="vbtn_${poll.id}" onclick="castVote('${poll.id}')" ${poll.myVote !== null ? 'disabled' : ''}>${poll.myVote !== null ? '✓ Voted' : 'Vote'}</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function formatTime(ms) {
+  if (ms <= 0) return 'Ended';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (h > 0) return `${h}h ${m}m left`;
+  return `${m}m left`;
+}
+
+let selectedVotes = {};
+function selectVote(pollId, idx) {
+  selectedVotes[pollId] = idx;
+}
+
+function castVote(pollId) {
+  const poll = polls.find(p => p.id === pollId);
+  if (!poll || poll.myVote !== null) return;
+  const idx = selectedVotes[pollId];
+  if (idx === undefined) { toast('Please select an option first'); return; }
+  poll.votes[idx]++;
+  poll.myVote = idx;
+  addLog(`vote_cast → ${pollId} option[${idx}]`);
+  addLog(`state_commit → block #${Math.floor(Math.random()*100)+848}`);
+  document.getElementById('statVotes').textContent = parseInt(document.getElementById('statVotes').textContent) + 1;
+  document.getElementById('statBlocks').textContent = parseInt(document.getElementById('statBlocks').textContent) + 1;
+  renderPolls();
+  toast('✅ Vote committed to P2P state!');
+}
+
+function filterPolls(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderPolls();
+}
+
+// ─── CREATE POLL ─────────────────────────────────────
+function addOption() {
+  const list = document.getElementById('optionsList');
+  const row = document.createElement('div');
+  row.className = 'option-row';
+  row.innerHTML = `<input type="text" placeholder="Option" /><button class="btn-icon" onclick="removeOption(this)">✕</button>`;
+  list.appendChild(row);
+}
+
+function removeOption(btn) {
+  const list = document.getElementById('optionsList');
+  if (list.children.length <= 2) { toast('Need at least 2 options'); return; }
+  btn.parentElement.remove();
+}
+
+function createPoll() {
+  const q = document.getElementById('pollQuestion').value.trim();
+  if (!q) { toast('Enter a poll question!'); return; }
+  const opts = [...document.querySelectorAll('#optionsList input')].map(i => i.value.trim()).filter(Boolean);
+  if (opts.length < 2) { toast('Need at least 2 options!'); return; }
+
+  const newPoll = {
+    id: 'poll_' + Date.now(),
+    question: q,
+    options: opts,
+    votes: opts.map(() => 0),
+    status: 'live',
+    creator: 'You',
+    ends: Date.now() + parseInt(document.getElementById('duration').value) * 1000,
+    myVote: null,
+  };
+  polls.unshift(newPoll);
+  document.getElementById('pollQuestion').value = '';
+  addLog(`poll_create → "${q}" · ${opts.length} options`);
+  addLog(`sidechannel_broadcast → ${peers.filter(p=>p.online).length} peers`);
+  document.getElementById('statPolls').textContent = polls.length;
+  currentFilter = 'live';
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===0));
+  renderPolls();
+  toast('📡 Poll broadcast to all peers!');
+}
+
+// ─── LOG ─────────────────────────────────────────────
+function addLog(msg) {
+  const now = new Date().toLocaleTimeString();
+  logLines.unshift(`<div class="log-line"><span>[${now}]</span> ${msg}</div>`);
+  if (logLines.length > 30) logLines.pop();
+  document.getElementById('logBox').innerHTML = logLines.join('');
+}
+
+// ─── TOAST ───────────────────────────────────────────
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─── SIMULATE ACTIVITY ───────────────────────────────
+const activityMessages = [
+  () => `peer_msg ← Agent Beta: "sidechannel ping"`,
+  () => `vote_recv ← Agent Alpha on poll_001`,
+  () => `state_sync ← block #${848 + Math.floor(Math.random()*10)}`,
+  () => `peer_join ← Agent Gamma (reconnect)`,
+  () => `vote_recv ← Agent Delta on poll_002`,
+];
+let actIdx = 0;
+setInterval(() => {
+  addLog(activityMessages[actIdx % activityMessages.length]());
+  actIdx++;
+  const v = document.getElementById('statBlocks');
+  v.textContent = parseInt(v.textContent) + 1;
+}, 4000);
+
+// ─── INIT ─────────────────────────────────────────────
+renderPeers();
+renderPolls();
+addLog('intercom_node started · pear runtime');
+addLog('contract loaded · state_sync ok');
+addLog('sidechannel ready · 4 peers connected');
+</script>
+</body>
+</html>
